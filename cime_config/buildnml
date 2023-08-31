@@ -49,6 +49,8 @@ def buildnml(case, caseroot, compname):
     run_refcase       = case.get_value("RUN_REFCASE")
     run_refdate       = case.get_value("RUN_REFDATE")
     run_reftod        = case.get_value("RUN_REFTOD")
+    ncpl_base_period = case.get_value("NCPL_BASE_PERIOD")
+    atm_ncpl         = case.get_value("ATM_NCPL")
     stream_name       = 'streams.ocean'
 
     mpasoconf_dir = os.path.join(casebuild, "mpasoconf")
@@ -390,9 +392,31 @@ def buildnml(case, caseroot, compname):
         # create mpasoconf/cesm_namelist
         # -----------------------------------------------------
 
+        # Use atm_ncpl to get a DD_HH:MM:SS timestamp for config_dt
+        # GDD: I hope we don't have to deal with year
+        # if ncpl_base_period == 'year':
+        #     config_dt = ( 3600 * 24 * 365 ) // atm_ncpl
+        elif ncpl_base_period == 'day':
+            dt_s = ( 3600 * 24 ) // atm_ncpl
+            dt_d, rem = divmod(dt_s, 3600*24)
+            dt_h, rem = divmod(rem, 3600)
+            dt_m, dt_s = divmod(rem, 60)
+            config_dt = "{:02d}_{:02d}:{:02d}:{:02d}".format(dt_d,dt_h,dt_m,dt_s)
+        elif ncpl_base_period == 'hour':
+            dt_s = ( 3600 ) // atm_ncpl
+            dt_h, rem = divmod(dt_s, 3600)
+            dt_m, dt_s = divmod(rem, 60)
+            config_dt = "{:02d}:{:02d}:{:02d}".format(dt_h,dt_m,dt_s)
+        else:
+            logger.warning("WARNING: {} is being used".format(ncpl_base_period))
+
+        infile_text = ""
+        infile_text += " config_dt = {} \n".format(config_dt)
+
         create_namelist_infile(case,
                                "{}/user_nl_mpaso{}".format(caseroot, inst_string),
                                "{}/cesm_namelist".format(mpasoconf_dir))
+                               infile_text=infile_text)
 
         # -----------------------------------------------------
         # call build-namelist- output will go in $CASEBUILD/mpasoconf/mpaso_in
